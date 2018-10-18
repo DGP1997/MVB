@@ -321,11 +321,7 @@ module decode_ctr(
                     frame_over<=1'b0;
                     clk_en<=1'b1;
                     if(delimiter_counter==5'h4&&E_frame==1'b1)begin
-                        if(length_error==1'b1&&crc_error==1'b0)begin
-                            frame_over<=1'b0;
-                        end else  begin
-                            frame_over<=1'b1;
-                        end                    
+                        frame_over<=1'b1;                   
                         next_state<=END;
                     end else begin
                         next_state<=CHECK_END;
@@ -341,6 +337,7 @@ module decode_ctr(
                     crc_ready<=1'b0;
                     crc_read<=1'b0;
                     clk_en<=1'b0;
+						  frame_over<=1'b1;
                     demanchesite_en<=1'b0;
                     deserializer_en<=1'b0;
                     deserializer_wait<=1'b0;

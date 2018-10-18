@@ -1,23 +1,26 @@
-(*DONT_TOUCH="true"*)
+(*DONT_TOUCH="TRUE"*)
 module Encode(
 			input 		 clk_24M,
 			input 		 clk_6M,
-			input	     clk_3M,
+			input	       clk_3M,
+			input			 write_clk,
 			input 		 rst,
-			input        clk_rst,
+			input			 decode_frame_over,
+			//input        clk_rst,
 			input 		 send_frame,
 			input 		 M_frame,
 			input 		 S_frame,
 			input        fifo_write_en,
 			input[6:0] 	 frame_length,
 			input[15:0]  data_in,
+			output[15:0] fifo_data_output,
 			output wire	 data_out,
 			output wire	 frame_over
 )/*synthesis noprune*/ ;
 
 
- wire[1:0]		    delimiter_format_o;
- wire[1:0]		    multi_sel_o;
+ wire[1:0]		delimiter_format_o;
+ wire[1:0]		multi_sel_o;
  wire				manchesite_en_o;
  wire				crc_en_o;
  wire				multi_en_o;
@@ -42,7 +45,7 @@ module Encode(
  
 
  
- 
+ assign fifo_data_output=fifo_data_out;
 
  
  
@@ -56,6 +59,7 @@ module Encode(
 		.data_length(frame_length),
 		.master_frame(M_frame),
 		.slave_frame(S_frame),
+		.decode_over(decode_frame_over),
 		
 
 		.delimiter_format(delimiter_format_o),
@@ -86,14 +90,15 @@ module Encode(
  );
  
  fifo_generator_0 fifo1(
+        .rst(1'b0),
+		  .wr_clk(write_clk),
+        .rd_clk(clk_3M),
         .full(full),
         .empty(empty),
         .din(data_in),
-        .wr_en(fifo_write_en),
         .dout(fifo_data_out),
-        .rd_en(data_read_o),
-        .clk(clk_3M),
-        .srst(1'b0)
+        .wr_en(fifo_write_en),
+        .rd_en(data_read_o)
  ); 
  
  delimiter d1(

@@ -8,23 +8,24 @@
 module EncodeCtrl (
 		input 				rst,                    //复位信号
 		input 				clk,                    //24Mhz时钟
-		input				clk_6M,                 //6Mhz时钟
-		input				clk_3M,                 //3Mhz时钟
+		input				   clk_6M,                 //6Mhz时钟
+		input				   clk_3M,                 //3Mhz时钟
+		
 		
 		input 				send_frame,             //帧发送信号
 		input[6:0]			data_length,            //数据长度
-		input				master_frame,           //发送的帧为主帧
+		input				   master_frame,           //发送的帧为主帧
 		input 				slave_frame,            //发送的帧为从帧
-		
+		input					decode_over,
 		
 		output reg[1:0]	    delimiter_format,       //帧分界符格式
 		output reg[1:0]	    multi_sel,              //多路选择信号
 		
-		output reg			manchesite_en,          //曼彻斯特编码使能信号
-		output reg			crc_en,                 //CRC模块使能信号
+		output reg			  manchesite_en,          //曼彻斯特编码使能信号
+		output reg			  crc_en,                 //CRC模块使能信号
 		output reg          multi_en,              //多路选择器使能信号
-		output reg			deserialize_en,        //并串转换使能信号
-		output reg			delimiter_en,          //分界符生成使能信号
+		output reg			  deserialize_en,        //并串转换使能信号
+		output reg			  delimiter_en,          //分界符生成使能信号
 		
 		output reg			data_read,             //并串转换模块读数据信号
 		output reg			data_send,             //并串转换模块转换并发出数据信号
@@ -33,7 +34,7 @@ module EncodeCtrl (
 		output reg			crc_ready,             //CRC生成信号
 		output reg			frame_over             //帧发送完成信号
 
-)/*synthesis preserve*/;
+)/*synthesis preserve="true"*/;
 	parameter IDLE=4'b0000;                    //等待状态
 	parameter SET_SF=4'b0001;                  //置标志位状态
 	parameter SEND_HEADER=4'b0010;             //开始发送帧起始分界符状态
@@ -48,19 +49,19 @@ module EncodeCtrl (
 	
 	//reg[3:0] 	clkcount;
 
-	reg[3:0] 	next_state;
+	(*keep ="true"*)reg[3:0] 	next_state=4'h0;
 	
 	reg[4:0] 	data_counter=5'h1;
 	
 	reg[6:0] 	word_counter=7'h0;
 	reg[3:0] 	crc_counter=4'h0;
-	reg[3:0]   	current_state;
+	(*keep ="true"*)reg[3:0]   	current_state=4'h0;
 	reg[4:0]   	delimiter_counter=5'h0;
 	
 	reg		delimiter_count_en;
 	reg		data_count_en;
 	reg		crc_count_en;
-	reg    	send_frame_f;
+	reg    	send_frame_f=1'b0;
 
 	
 	reg    	end_flag;
@@ -68,7 +69,15 @@ module EncodeCtrl (
 	reg    	crc_end;
 	
 	
-
+	reg[6:0]	data_length_r;
+	reg		S_frame_r;
+	reg		M_frame_r;
+	reg		send_frame_r=1'b0;
+	
+	initial begin
+		current_state<=4'h0;
+		next_state<=4'h0;
+	end
 	
 	
 	always @(posedge clk_6M  ) begin
@@ -80,8 +89,12 @@ module EncodeCtrl (
 	end
 	
 	always @(negedge clk_3M) begin
-	   if(send_frame==1'b1)begin
+			send_frame_r<=send_frame;
+	   if(send_frame==1'b0&&send_frame_r==1'b1&&current_state==4'h0&&decode_over==1'b0)begin
 	       send_frame_f<=1'b1;
+			 data_length_r<=data_length;
+			 S_frame_r<=slave_frame;
+			 M_frame_r<=master_frame;
 	   end else begin
 	       send_frame_f<=1'b0;
 	   end
@@ -126,6 +139,8 @@ module EncodeCtrl (
 			clkcount<=clkcount+1;
 		end
 	end*/
+	
+
 	
 	always @(posedge clk)begin
 		if(rst==1'b0)begin
@@ -225,9 +240,9 @@ module EncodeCtrl (
 				multi_en<=1'b1;
 				multi_sel<=2'b01;
 				delimiter_count_en<=1'b1;
-				if(master_frame==1'b1&&slave_frame==1'b0)begin
+				if(M_frame_r==1'b1&&S_frame_r==1'b0)begin
 					delimiter_format<=2'b01;
-				end else if(master_frame==1'b0&&slave_frame==1'b1)begin
+				end else if(M_frame_r==1'b0&&S_frame_r==1'b1)begin
 					delimiter_format<=2'b10;
 				end
 				next_state<=HEADER_WAIT;
@@ -242,9 +257,9 @@ module EncodeCtrl (
                     delimiter_send<=1'b1;
                     data_read<=1'b0;
 			    end
-				if(master_frame==1'b1&&slave_frame==1'b0)begin
+				if(M_frame_r==1'b1&&S_frame_r==1'b0)begin
                     delimiter_format<=2'b01;
-                end else if(master_frame==1'b0&&slave_frame==1'b1)begin
+                end else if(M_frame_r==1'b0&&S_frame_r==1'b1)begin
                     delimiter_format<=2'b10;
                 end			
 				deserialize_en<=1'b1;
@@ -275,7 +290,7 @@ module EncodeCtrl (
                 crc_ready<=1'b1;
                 crc_send<=1'b0;
                 multi_sel<=2'b10;
-				deserialize_en<=1'b1;
+					 deserialize_en<=1'b1;
                 manchesite_en<=1'b1;				                        
 				next_state<=DATA_WAIT;
 			end
@@ -300,7 +315,7 @@ module EncodeCtrl (
                     end else begin
                         data_read<=1'b1;
                     end
-                    if(word_counter==data_length-1)begin
+                    if(word_counter==data_length_r-1)begin
                        willend_flag<=1'b1;
                     end else begin
                         willend_flag<=1'b0;
@@ -316,9 +331,9 @@ module EncodeCtrl (
                         crc_end<=1'b0;
                     end
                 end                
-				if(((word_counter%4==0)||(word_counter==data_length))&&(word_counter!=5'h0)&&(crc_end==1'b0))begin				    
+				if(((word_counter%4==0)||(word_counter==data_length_r))&&(word_counter!=5'h0)&&(crc_end==1'b0))begin				    
 					next_state<=SEND_CRC;
-					if(word_counter==data_length)begin
+					if(word_counter==data_length_r)begin
 					   end_flag<=1'b1;
 					end
 				end else begin
@@ -367,7 +382,7 @@ module EncodeCtrl (
                 multi_sel<=2'b11;
                 multi_en<=1'b1;
                 manchesite_en<=1'b1; 				
-				if(word_counter==data_length)begin
+				if(word_counter==data_length_r)begin
 				    delimiter_count_en<=1'b1;	
                     delimiter_send<=1'b1;
                     delimiter_en<=1'b1;
@@ -396,10 +411,10 @@ module EncodeCtrl (
 				data_read<=1'b0;
 				data_count_en<=1'b0;
 				multi_sel<=2'b01;
-                multi_en<=1'b1;				
-                manchesite_en<=1'b1;	
+            multi_en<=1'b1;				
+            manchesite_en<=1'b1;	
                 crc_send<=1'b0;			
-				if(delimiter_counter==5'h6)begin
+				if(delimiter_counter==5'h7)begin
 					next_state<=TRAIL_WAIT;
 				end else begin
 					next_state<=SEND_TRAIL;
@@ -411,13 +426,13 @@ module EncodeCtrl (
 				delimiter_send<=1'b0;
 				manchesite_en<=1'b0;
 				manchesite_en<=1'b0;
-                multi_en<=1'b0;
-                delimiter_en<=1'b0;
-                deserialize_en<=1'b0;
-                data_count_en<=1'b0;
-                delimiter_count_en<=1'b0;
-                crc_count_en<=1'b0;
-                frame_over<=1'b1;				
+            multi_en<=1'b0;
+            delimiter_en<=1'b0;
+            deserialize_en<=1'b0;
+            data_count_en<=1'b0;
+            delimiter_count_en<=1'b0;
+            crc_count_en<=1'b0;
+            frame_over<=1'b1;				
 				next_state<=DELAY_SF;
 			end
 			

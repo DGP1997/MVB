@@ -34,7 +34,7 @@ module decode(
             output          delimiter_error,
             output          quality_error,
             output          crc_error,
-            output reg     frame_over_out
+            output reg      frame_over_out
     );
     
     reg             clk_6M;
@@ -79,7 +79,9 @@ module decode(
     reg [2:0]   clk_counter;
     
     assign led=data[key%16];
-    
+    /*always @(posedge data_get)begin
+			led<=data_out;
+	 end*/
     
     always @(posedge clk)begin
         if(clk_en_o==1'b0&&cout_count_en==1'b0)begin
@@ -210,15 +212,15 @@ module decode(
     );
     
     fifo_generator_0 fifo2(
-        .srst(1'b0),
-        .clk(clk_3M),
+        .rst(1'b0),
+        .wr_clk(~clk_3M),
+		  .rd_clk(clk_3M),
         .full(full),
         .empty(empty),
         .din(data_out),
         .dout(fifo_data_out),
         .wr_en(data_get),
         .rd_en(fifo_read_en)
-    
     );
     
     
