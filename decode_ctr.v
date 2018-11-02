@@ -65,9 +65,9 @@ module decode_ctr(
     reg[4:0]    delimiter_counter=5'h0;
     reg[4:0]    data_counter=5'h0;
     reg[4:0]    word_counter=5'h0;
+	 reg[4:0]	 crc_word_counter=5'h0;
     reg[3:0]    crc_counter=4'h0;
     
-    reg         crc_end;
     
     always @(posedge clk_6M or negedge delimiter_count_en)begin
         if(delimiter_count_en==1'b0)begin
@@ -84,7 +84,7 @@ module decode_ctr(
         end
     end
     
-    always @(posedge clk_3M or negedge data_count_en )begin
+    always @(posedge clk_3M  )begin
         if(data_count_en==1'b0)begin
             data_counter<=5'h0;
             /*if(current_state<=GET_DATA)begin
@@ -110,8 +110,7 @@ module decode_ctr(
             word_counter<=word_counter;
         end
     end
-    
-    
+    	 
     always @(posedge clk_3M or negedge crc_count_en)begin
         if(crc_count_en==1'b0)begin
             crc_counter<=4'h0;
@@ -163,7 +162,6 @@ module decode_ctr(
                     frame_end<=1'b0;
                     frame_over<=1'b0;
                     clk_en<=1'b0;
-                    crc_end<=1'b0;
                     if(frame_start==1'b1)begin
                         clk_en<=1'b1;
                         next_state<=CHECK_DELIMITER;
@@ -187,12 +185,11 @@ module decode_ctr(
                     frame_end<=1'b0;
                     frame_over<=1'b0;
                     clk_en<=1'b1;
-                    crc_end<=1'b0;
                     if(delimiter_counter>=5'h11)begin
                         if(S_frame==1'b1||M_frame==1'b1)begin
                             demanchesite_en<=1'b1;
                             next_state<=GET_DATA;
-                        end else if(delimiter_error)begin
+                        end else if(delimiter_error==1'b1)begin
                             next_state<=END;
                         end else begin
                             next_state<=END;
@@ -209,7 +206,9 @@ module decode_ctr(
                     crc_check_en<=1'b1;
                     if(data_counter>=5'h1)begin
                         crc_read<=1'b0;
-                    end
+                    end else begin
+								crc_read<=1'b1;
+						  end
                     deserializer_wait<=1'b0;
                     demanchesite_en<=1'b1;
                     data_count_en<=1'b1;
@@ -221,23 +220,14 @@ module decode_ctr(
                     crc_ready<=1'b1;
                     crc_read<=1'b0;
                     deserializer_en<=1'b1;
-                    if(crc_end==1'b1)begin
-                        crc_end<=1'b1;
-                    end                    
-                    if(word_counter%4!=0)begin
-                        crc_end<=1'b0;
-                    end
+						  /*if(data_counter==5'h15)begin
+								pre_state=GET_DATA;
+						  end else begin
+								pre_state=pre_state;
+						  end*/
                     if(quality_error==1'b1||signal_error==1'b1||crc_error==1'b1)begin
                         next_state<=END;
-                    end 
-                    /*if((word_counter+1)==frame_length_reg||((word_counter+1)%4==0))begin
-                        if(data_counter==5'hf)begin
-                            crc_read<=1'b1;
-                        end
-                    end*/
-                    if(crc_end==1'b0&&(word_counter==frame_length_reg||word_counter%4==0)&&word_counter!=0)begin
-                          deserializer_wait<=1'b1;
-                          crc_check_en<=1'b1;
+                    end else if(word_counter!=crc_word_counter&&(word_counter==frame_length_reg||word_counter%4==0)&&word_counter!=0)begin
                           next_state<=CHECK_CRC;
                     end else begin
                           next_state<=GET_DATA;
@@ -250,25 +240,28 @@ module decode_ctr(
                     delimiter_count_en<=1'b0;
                     crc_check_en<=1'b1;
                     crc_read<=1'b0;
-                    deserializer_wait<=1'b0;
-                    if(crc_counter>=5'h1)begin
-                        crc_read<=1'b1;
+						  data_count_en<=1'b0; 
+                    if(crc_counter>=5'h1&&crc_counter<=5'h8)begin
                         deserializer_wait<=1'b1;
-                    end
+                    end else begin
+								deserializer_wait<=1'b0;
+						  end
                     if(word_counter==5'h1)begin
                         crc_read<=1'b1;
-                    end
-                    data_count_en<=1'b0;                    
-                    
-                    if(crc_counter==9)begin
+                    end else begin
+								if(crc_counter>=5'h1)begin
+									crc_read<=1'b1;
+								end else begin
+									crc_read<=1'b0;
+								end
+						  end
+                    if(crc_counter>=9)begin
                         data_count_en<=1'b1;
-                        crc_end<=1'b1;
-                        deserializer_wait<=1'b0;
-                    end
-                    if(crc_counter==8)begin
-                        deserializer_wait<=1'b1;
-                        crc_end<=1'b1;
-                    end
+                    end else begin
+								data_count_en<=1'b0;
+						  end
+						  
+
                     crc_ready<=1'b1;
                     crc_count_en<=1'b1;
                     deserializer_en<=1'b1;
@@ -276,7 +269,6 @@ module decode_ctr(
                     frame_end<=1'b0;
                     frame_over<=1'b0;
                     clk_en<=1'b1;
-                    crc_end<=1'b1;
                     if(word_counter==frame_length_reg)begin
                         if(frame_length_reg==5'h1)begin
                             if(crc_counter>=5'h8)begin
@@ -288,17 +280,18 @@ module decode_ctr(
                             delimiter_check_en<=1'b1;
                             delimiter_count_en<=1'b1;
                         end
-                    end
+                    end else begin
+								delimiter_check_en<=1'b0;
+								delimiter_count_en<=1'b0;
+						  end
                     if(crc_counter==4'h9)begin
                             if(word_counter==frame_length_reg)begin
                                 frame_end<=1'b1;
+										  deserializer_en<=1'b1;
                                 next_state<=CHECK_END;
                             end else begin
-                                crc_end<=1'b1;
+										  crc_word_counter<=word_counter;
                                 next_state<=GET_DATA;
-                            end
-                            if(crc_error==1'b1)begin
-                                next_state<=END;
                             end
                     end else begin
                         next_state<=CHECK_CRC;
@@ -349,6 +342,11 @@ module decode_ctr(
                 end
                 
             endcase
+				if(current_state>=GET_DATA)begin
+					deserializer_en<=1'b1;
+				end else begin
+					deserializer_en<=1'b0;
+				end
         end
     end
     

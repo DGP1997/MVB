@@ -268,9 +268,12 @@ module EncodeCtrl (
                 multi_sel<=2'b01;
                 delimiter_send<=1'b1;
                 delimiter_count_en<=1'b1;			
-				if(delimiter_counter==5'h011||delimiter_counter==5'h12||delimiter_counter==5'h10)begin
+				if(delimiter_counter>=5'h011||(delimiter_counter>=1&&delimiter_counter<=3))begin
 				    data_read<=1'b1;
 				    data_send<=1'b0;
+				end else begin
+					 data_read<=1'b0;
+					 data_send<=1'b0;
 				end
 				if(delimiter_counter==5'h13) begin
 					delimiter_count_en<=1'b0;
@@ -282,7 +285,7 @@ module EncodeCtrl (
 			end
 			
 			SEND_DATA:begin
-				data_read<=1'b1;
+					 data_read<=1'b1;
                 data_send<=1'b0;			
                 data_count_en<=1'b1;
                 multi_en<=1'b1;                    
@@ -304,10 +307,10 @@ module EncodeCtrl (
                 multi_sel<=2'b10;
                 multi_en<=1'b1;
                 manchesite_en<=1'b1;                                	               		
-			     if(data_counter==5'h01)begin
+			     if(data_counter>=5'h01)begin
                    data_read<=1'b0;
                    data_send<=1'b1;
-                end 
+              end
 				if(data_counter==5'h10)begin
                     data_send<=1'b0;
                     if((word_counter+1)%4==0)begin
@@ -335,8 +338,11 @@ module EncodeCtrl (
 					next_state<=SEND_CRC;
 					if(word_counter==data_length_r)begin
 					   end_flag<=1'b1;
+					end else begin
+						end_flag<=1'b0;
 					end
 				end else begin
+					end_flag<=1'b0;
 					next_state<=DATA_WAIT;
 				end
 			end
@@ -348,44 +354,60 @@ module EncodeCtrl (
                 data_read<=1'b0;
                 data_send<=1'b0;
                 multi_sel<=2'b11;
-                multi_en<=1'b1;                
+                multi_en<=1'b1;    
+					 deserialize_en<=1'b1;
                 crc_send<=1'b1;
                 crc_ready<=1'b1;
                 manchesite_en<=1'b1;
                 delimiter_send<=1'b0;
-				if(crc_counter==4'h07&&end_flag==1'b1)begin
-				    delimiter_count_en<=1'b1;					    			    				   
-	             end else if(crc_counter==4'h07)begin
+					 delimiter_en<=1'b0;
+					 delimiter_format<=2'b11;
+				if(crc_counter>=4'h07&&word_counter==data_length_r)begin
+						  delimiter_count_en<=1'b1;
+						  if(delimiter_counter>=5'h1)begin
+							 delimiter_send<=1'b1;
+						  end else begin
+							 delimiter_send<=1'b0;
+						  end
+                    delimiter_en<=1'b1;
+                    delimiter_format<=2'b11;					 
+	             end else if(crc_counter>=4'h07)begin
 	               data_read<=1'b1;
 	               data_send<=1'b0;
-	             end
-	             if(delimiter_counter==5'h1)begin
-                    delimiter_send<=1'b1;
-                    delimiter_en<=1'b1;
-                    delimiter_format<=2'b11;    	             
-	             end
+	             end else begin
+						data_read<=1'b0;
+						data_send<=1'b0;
+						delimiter_en<=1'b0;
+						delimiter_count_en<=1'b0;
+					 end
 				if(crc_counter==4'h08)begin
 				    crc_end<=1'b1;
-				    multi_sel<=2'b01;
-					next_state<=CRC_WAIT;
+					 if(word_counter==data_length_r)begin
+							multi_sel<=2'b01;
+							multi_en<=1'b1;
+					 end else begin
+							multi_sel<=2'b10;
+							multi_en<=1'b1;
+					 end
+					 next_state<=CRC_WAIT;
 				end else begin
 				    next_state<=SEND_CRC;
 				end
 			end
 			
 			CRC_WAIT:begin
+				deserialize_en<=1'b1;
 				crc_send<=1'b0;
 				crc_en<=1'b0;
 				crc_ready<=1'b0;
 				crc_count_en<=1'b0;
 				crc_end<=1'b1;
-                multi_sel<=2'b11;
-                multi_en<=1'b1;
-                manchesite_en<=1'b1; 				
+            multi_en<=1'b1;
+            manchesite_en<=1'b1; 				
 				if(word_counter==data_length_r)begin
-				    delimiter_count_en<=1'b1;	
                     delimiter_send<=1'b1;
                     delimiter_en<=1'b1;
+						  delimiter_count_en<=1'b1;
                     delimiter_format<=2'b11;
                     crc_send<=1'b0;
                     multi_sel<=2'b01;				
@@ -393,7 +415,7 @@ module EncodeCtrl (
 				end else begin
 					data_read<=1'b0;
 					data_send<=1'b1;
-                    data_count_en<=1'b1;
+               data_count_en<=1'b1;
                     crc_en<=1'b1;
                     crc_send<=1'b0;
                     crc_ready<=1'b1;
@@ -413,8 +435,11 @@ module EncodeCtrl (
 				multi_sel<=2'b01;
             multi_en<=1'b1;				
             manchesite_en<=1'b1;	
-                crc_send<=1'b0;			
-				if(delimiter_counter==5'h7)begin
+            crc_send<=1'b0;			
+				if(delimiter_counter>=5'h7)begin
+					delimiter_en<=1'b0;
+					delimiter_count_en<=1'b0;
+					manchesite_en<=1'b0;
 					next_state<=TRAIL_WAIT;
 				end else begin
 					next_state<=SEND_TRAIL;
@@ -424,9 +449,8 @@ module EncodeCtrl (
 			TRAIL_WAIT:begin
 				delimiter_count_en<=1'b0;
 				delimiter_send<=1'b0;
-				manchesite_en<=1'b0;
-				manchesite_en<=1'b0;
-            multi_en<=1'b0;
+				manchesite_en<=1'b1;
+            multi_en<=1'b1;
             delimiter_en<=1'b0;
             deserialize_en<=1'b0;
             data_count_en<=1'b0;

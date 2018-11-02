@@ -39,7 +39,7 @@ module delimiter (
 	end
 	
 	
-	always @( posedge clk_3M  ) begin
+	always @( posedge clk_3M or negedge reset ) begin
 		if(reset==1'b0)begin
 			delimiter_out<=1'b0;
 		end else if(send_delimiter==1'b1) begin	      

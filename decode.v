@@ -20,23 +20,24 @@
 //////////////////////////////////////////////////////////////////////////////////
 
 
-module decode(
-            input[7:0]      key,
-            input           clk,
-            input           rst,
-            input[4:0]      frame_length,
-            input           data_in,
-            output[15:0]    fifo_data_out,
-            output[15:0]    led,
-            output          data_get,
-            output          length_error,
-            output          signal_error,
-            output          delimiter_error,
-            output          quality_error,
-            output          crc_error,
-            output reg      frame_over_out
+module decode(				
+            input           clk,					//24M时钟
+            input           rst,					//复位
+            input[4:0]      frame_length,		//帧长度
+            input           data_in,			//数据输入
+				input				 fifo_rden,			//fifo读使能
+				input				 fifo_rdclk,		//fifo读脉冲
+            output[15:0]    fifo_data_out,	//fifo数据输出
+				output[15:0]	 deserialize_data,
+            output          data_get,			//16数据接受完毕
+            output          length_error,		//长度错误
+            output          signal_error,		//信号错误
+            output          delimiter_error,	//分界符错误
+            output          quality_error,	//信号质量错误
+            output          crc_error,			//CRC校验错误
+            output reg      frame_over_out	//帧接受结束
     );
-    
+
     reg             clk_6M;
     reg             clk_3M;
     wire            frame_start_o;
@@ -71,17 +72,11 @@ module decode(
     wire            frame_over;
     reg             cout_count_en;
     reg[8:0]        cout_counter;
-    reg             fifo_read_en;
-    reg[15:0]       data[15:0];
     
-    
+    assign deserialize_data=data_out;
     
     reg [2:0]   clk_counter;
     
-    assign led=data[key%16];
-    /*always @(posedge data_get)begin
-			led<=data_out;
-	 end*/
     
     always @(posedge clk)begin
         if(clk_en_o==1'b0&&cout_count_en==1'b0)begin
@@ -109,27 +104,19 @@ module decode(
         if(frame_over==1'b1)begin
             frame_over_out<=1'b1;
             cout_count_en<=1'b1;
-            fifo_read_en<=1'b1;
         end else if(frame_over_out==1'b1&&cout_counter!=17)begin
             frame_over_out<=1'b1;
             cout_count_en<=1'b1;
-            fifo_read_en<=1'b1;
         end else if(cout_counter==17)begin
-            fifo_read_en<=1'b0;
             frame_over_out<=1'b0;
             cout_count_en<=1'b0;
         end else begin
             frame_over_out<=1'b0;
             cout_count_en<=1'b0;
-            fifo_read_en<=1'b0;
         end
     end
     
-    always @(posedge clk_3M)begin
-        if(fifo_read_en==1'b1&&cout_counter>=1)begin
-            data[cout_counter-1]<=fifo_data_out;
-        end
-    end
+
     
     always @(posedge clk_3M)begin
         if(cout_count_en==1'b0)begin
@@ -207,20 +194,20 @@ module decode(
         .clk_3M(clk_3M),
         .deserializer_wait(deserializer_wait_o),
         .data_in(org_data_o),
-        .data_out(data_out),
+        .data_preserve(data_out),
         .data_get_o(data_get)
     );
     
     fifo_generator_0 fifo2(
         .rst(1'b0),
-        .wr_clk(~clk_3M),
-		  .rd_clk(clk_3M),
+        .wr_clk(clk_3M),
+		  .rd_clk(fifo_rdclk),
         .full(full),
         .empty(empty),
         .din(data_out),
         .dout(fifo_data_out),
         .wr_en(data_get),
-        .rd_en(fifo_read_en)
+        .rd_en(fifo_rden)
     );
     
     

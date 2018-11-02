@@ -1,22 +1,22 @@
 (*DONT_TOUCH="TRUE"*)
 module Encode(
-			input 		 clk_24M,
-			input 		 clk_6M,
-			input	       clk_3M,
-			input			 write_clk,
-			input 		 rst,
-			input			 decode_frame_over,
-			//input        clk_rst,
-			input 		 send_frame,
-			input 		 M_frame,
-			input 		 S_frame,
-			input        fifo_write_en,
-			input[6:0] 	 frame_length,
-			input[15:0]  data_in,
-			output[15:0] fifo_data_output,
-			output wire	 data_out,
-			output wire	 frame_over
-)/*synthesis noprune*/ ;
+			input 		 clk_24M,				//24Mhz时钟
+			input        clk_3M,
+			input        clk_6M,
+			input			 write_clk,				//fifo写入脉冲
+			input 		 rst,						//复位
+			input			 decode_frame_over,	//编码接收结束
+			input 		 send_frame,			//帧发送信号
+			input 		 M_frame,				//主帧信号
+			input 		 S_frame,				//从帧信号
+			input        fifo_write_en,		//fifo写使能
+			input[6:0] 	 frame_length,			//帧长度
+			input[15:0]  data_in,				//输入数据
+			output[15:0] fifo_data_output,	//fifo输出数据
+			output wire	 data_out,				//编码后输出结果
+			output wire	 frame_over				//帧发送结束
+
+)/*synthesis preserve="true"*/ ;
 
 
  wire[1:0]		delimiter_format_o;
@@ -48,8 +48,9 @@ module Encode(
  assign fifo_data_output=fifo_data_out;
 
  
- 
 
+
+(*DONT_TOUCH="TRUE"*)
  EncodeCtrl encodectrl1(
 		.rst(rst),
 		.clk(clk_24M),
@@ -79,7 +80,7 @@ module Encode(
  
  );
  
-
+(*DONT_TOUCH="TRUE"*)
  Deserialize deserialize1(
 		.clk_1d5M(clk_3M),
 		.reset(deserialize_en_o),
@@ -88,7 +89,7 @@ module Encode(
 		.shift(data_send_o),
 		.dout(data_o)
  );
- 
+ (*DONT_TOUCH="TRUE"*)
  fifo_generator_0 fifo1(
         .rst(1'b0),
 		  .wr_clk(write_clk),
@@ -100,7 +101,7 @@ module Encode(
         .wr_en(fifo_write_en),
         .rd_en(data_read_o)
  ); 
- 
+ (*DONT_TOUCH="TRUE"*)
  delimiter d1(
              .reset(delimiter_en_o),               
              .clk_3M(clk_6M),                
@@ -111,7 +112,7 @@ module Encode(
  );
  
  
-
+(*DONT_TOUCH="TRUE"*)
  CRC crc(
 		.clk_1d5M(clk_3M),
 		.data_in(data_o),
@@ -123,7 +124,7 @@ module Encode(
  
  );
  
-
+(*DONT_TOUCH="TRUE"*)
  Multiplexer MUL(
 		.multi_en(multi_en_o),
 		.sel(multi_sel_o),
@@ -136,7 +137,7 @@ module Encode(
  );
  
  
-//(* DONT_TOUCH= "true" *)
+(* DONT_TOUCH= "true" *)
   manchesite m1(
 		.clk_3M(clk_3M),
 		.clk_6M(clk_6M),
