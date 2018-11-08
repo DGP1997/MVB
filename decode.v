@@ -28,6 +28,8 @@ module decode(
 				input				 fifo_rden,			//fifo读使能
 				input				 fifo_rdclk,		//fifo读脉冲
             output[15:0]    fifo_data_out,	//fifo数据输出
+				output			 fifo_read_empty,
+				output[4:0]		 fifo_read_count,
 				output[15:0]	 deserialize_data,
             output          data_get,			//16数据接受完毕
             output          length_error,		//长度错误
@@ -203,11 +205,12 @@ module decode(
         .wr_clk(clk_3M),
 		  .rd_clk(fifo_rdclk),
         .full(full),
-        .empty(empty),
+        .empty(fifo_read_empty),
         .din(data_out),
         .dout(fifo_data_out),
         .wr_en(data_get),
-        .rd_en(fifo_rden)
+        .rd_en(fifo_rden),
+		  .rd_data_count(fifo_read_count)
     );
     
     

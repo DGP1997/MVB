@@ -4,6 +4,7 @@ module Encode(
 			input        clk_3M,
 			input        clk_6M,
 			input			 write_clk,				//fifo写入脉冲
+			output		 fifo_write_full,
 			input 		 rst,						//复位
 			input			 decode_frame_over,	//编码接收结束
 			input 		 send_frame,			//帧发送信号
@@ -12,6 +13,7 @@ module Encode(
 			input        fifo_write_en,		//fifo写使能
 			input[6:0] 	 frame_length,			//帧长度
 			input[15:0]  data_in,				//输入数据
+			output[5:0]	 fifo_write_count,
 			output[15:0] fifo_data_output,	//fifo输出数据
 			output wire	 data_out,				//编码后输出结果
 			output wire	 frame_over				//帧发送结束
@@ -94,11 +96,12 @@ module Encode(
         .rst(1'b0),
 		  .wr_clk(write_clk),
         .rd_clk(clk_3M),
-        .full(full),
+        .full(fifo_write_full),
         .empty(empty),
         .din(data_in),
         .dout(fifo_data_out),
         .wr_en(fifo_write_en),
+		  .wr_data_count(fifo_write_count),
         .rd_en(data_read_o)
  ); 
  (*DONT_TOUCH="TRUE"*)
