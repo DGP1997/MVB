@@ -1,0 +1,7 @@
+##############################################################################
+## Filename:          D:\MVB\MVB_CPU\pcores/interface_v1_00_a/data/interface_v2_1_0.pao
+## Description:       Peripheral Analysis Order
+## Date:              Tue Nov 06 11:55:11 2018 (by Create and Import Peripheral Wizard)
+##############################################################################
+
+lib interface_v1_00_a interface verilog
