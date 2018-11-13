@@ -58,9 +58,7 @@ module decode(
     wire            deserializer_en_o;
     wire            deserializer_wait_o;
     wire            demanchesite_en_o;
-    wire            crc_check_en_o;
-    wire            crc_read_o;
-    wire            crc_ready_o;
+
     wire            org_data_o;
     wire            clk_en_o;
     
@@ -70,7 +68,8 @@ module decode(
     wire[15:0]      fifo_data_in;
     wire[15:0]      data_out;
     wire            fifo_write_en;
-    
+    wire				  SF_check;
+	 wire				  frame_end_check;
     wire            frame_over;
     reg             cout_count_en;
     reg[8:0]        cout_counter;
@@ -137,6 +136,7 @@ module decode(
         .rst(rst),
         .clk_en(clk_en_o),
         .frame_start(frame_start_o),
+		  .SF_check(SF_check),
         .S_frame(S_frame_o),
         .M_frame(M_frame_o),
         .E_frame(E_frame_o),
@@ -149,12 +149,8 @@ module decode(
         .start_check_en(start_check_en_o),
         .delimiter_check_en(delimiter_check_en_o),
         .deserializer_en(deserializer_en_o),
-        .deserializer_wait(deserializer_wait_o),
         .demanchesite_en(demanchesite_en_o),
-        .crc_ready(crc_ready_o),
-        .crc_read(crc_read_o),
-        .crc_check_en(crc_check_en_o),
-        .frame_end(frame_end_o),
+        //.frame_end(frame_end_o),
         .frame_over(frame_over)
     );
     
@@ -172,7 +168,8 @@ module decode(
         .clk_3M(clk_3M),
         .clk_6M(clk_6M),
         .data_in(data_in),
-        .frame_end(frame_end_o),
+		  .SF_check(SF_check),
+        .frame_end_check(frame_end_check),
         .M_frame(M_frame_o),
         .S_frame(S_frame_o),
         .E_frame(E_frame_o),
@@ -196,6 +193,8 @@ module decode(
         .clk_3M(clk_3M),
         .deserializer_wait(deserializer_wait_o),
         .data_in(org_data_o),
+		  .quality_error(quality_error_o),
+		  .frame_end_check(frame_end_check),
         .data_preserve(data_out),
         .data_get_o(data_get)
     );
@@ -214,15 +213,7 @@ module decode(
     );
     
     
-    (*DONT_TOUCH="true"*)
-    crc_check u6(
-        .rst(crc_check_en_o),
-        .clk_3M(clk_3M),
-        .crc_ready(crc_ready_o),
-        .crc_read(crc_read_o),
-        .data_in(org_data_o),
-        .crc_error(crc_error_o)
-    );
+
     
     
     

@@ -35,6 +35,7 @@ module decode_ctr(
             input           signal_error,           //信号错误
             input           quality_error,          //信号质量错误
             input [4:0]     frame_length,           //帧长度
+				output  reg		 SF_check,
             output  reg     clk_en,                //帧同步时钟使能
             output  reg     start_check_en,         //起始位检测模块使能
             output  reg     delimiter_check_en,     //分界符检测模块使能
@@ -43,7 +44,6 @@ module decode_ctr(
             output  reg     crc_ready,              //CRC校验码生成
             output  reg     crc_read,               //CRC校验码读取
             output  reg     crc_check_en,           //CRC校验模块使能
-            output  reg     frame_end,              //帧终止信号
             output  reg     demanchesite_en,        //曼彻斯特解码使能
             output  reg     frame_over              //帧结束信号
     );
@@ -51,22 +51,18 @@ module decode_ctr(
     parameter IDEL=3'b000;                  //等待状态
     parameter CHECK_DELIMITER=3'b001;       //分界符检测状态
     parameter GET_DATA=3'b010;              //接收数据状态
-    parameter CHECK_CRC=3'b011;             //CRC校验状态
-    parameter CHECK_END=3'b100;             //终止符校验状态
-    parameter END=3'b101;                   //终止状态
+    parameter CHECK_END=3'b011;             //终止符校验状态
+    parameter END=3'b100;                   //终止状态
     
     reg[2:0]    current_state;
     reg[2:0]    next_state;
     reg[4:0]    frame_length_reg;
     reg         delimiter_count_en=1'b0;
-    reg         data_count_en=1'b0;
-    reg         crc_count_en=1'b0;
+
     
     reg[4:0]    delimiter_counter=5'h0;
-    reg[4:0]    data_counter=5'h0;
-    reg[4:0]    word_counter=5'h0;
-	 reg[4:0]	 crc_word_counter=5'h0;
     reg[3:0]    crc_counter=4'h0;
+	 reg[3:0]	 wait_counter;
     
     
     always @(posedge clk_6M or negedge delimiter_count_en)begin
@@ -74,54 +70,26 @@ module decode_ctr(
             delimiter_counter<=5'h0;
         end else begin
             delimiter_counter<=delimiter_counter+1;
-            if(frame_end==1'b1)begin
-                if(delimiter_counter==5'h5)begin
+            if(SF_check==1'b0)begin
                     delimiter_counter<=5'h0;
-                end 
             end else if(delimiter_counter==5'h11)begin
                 delimiter_counter<=5'h0;
             end
         end
     end
     
-    always @(posedge clk_3M  )begin
-        if(data_count_en==1'b0)begin
-            data_counter<=5'h0;
-            /*if(current_state<=GET_DATA)begin
-                data_counter<=5'h1;
-            end*/
-        end else begin
-            data_counter<=data_counter+1;
-            if(data_counter==5'hf)begin
-                data_counter<=5'h0;
-                if(word_counter%4==0)begin
-                    data_counter<=5'h1;
-                end
-            end
-        end
-    end
+
     
-    always @(posedge clk_3M)begin
-        if(current_state==CHECK_END)begin
-            word_counter<=5'h0;
-        end else if(data_counter==5'hf) begin
-            word_counter<=word_counter+1;
-        end else begin
-            word_counter<=word_counter;
-        end
-    end
-    	 
-    always @(posedge clk_3M or negedge crc_count_en)begin
-        if(crc_count_en==1'b0)begin
-            crc_counter<=4'h0;
-        end else begin
-            crc_counter<=crc_counter+1;
-            if(crc_counter==4'ha)begin
-                crc_counter<=4'h0;
-            end
-        end
-    end
+
     
+	 always @(posedge clk_24M)begin
+		if(current_state==CHECK_END)begin
+			wait_counter<=wait_counter+1;
+		end else begin
+			wait_counter<=4'h0;
+		end
+	 end
+	 
     always @(posedge clk_24M) begin
         if(rst==1'b0)begin
             current_state<=IDEL;
@@ -142,6 +110,8 @@ module decode_ctr(
         end
     end
     
+
+	 
     always @(*) begin
         if(rst==1'b0) begin
             next_state<=IDEL;
@@ -151,15 +121,9 @@ module decode_ctr(
                     start_check_en<=1'b1;
                     delimiter_check_en<=1'b0;
                     deserializer_en<=1'b0;
-                    deserializer_wait<=1'b0;
-                    crc_check_en<=1'b0;
                     demanchesite_en<=1'b0;
                     delimiter_count_en<=1'b0;
-                    data_count_en<=1'b0;
-                    crc_count_en<=1'b0;
-                    crc_read<=1'b0;
-                    crc_ready<=1'b0;
-                    frame_end<=1'b0;
+						  SF_check<=1'b0;
                     frame_over<=1'b0;
                     clk_en<=1'b0;
                     if(frame_start==1'b1)begin
@@ -173,16 +137,10 @@ module decode_ctr(
                 CHECK_DELIMITER:begin
                     start_check_en<=1'b0;
                     delimiter_check_en<=1'b1;
+						  SF_check<=1'b1;
                     delimiter_count_en<=1'b1;
-                    crc_check_en<=1'b0;
                     deserializer_en<=1'b0;
-                    deserializer_wait<=1'b0;
                     demanchesite_en<=1'b0;
-                    data_count_en<=1'b0;
-                    crc_count_en<=1'b0;
-                    crc_read<=1'b0;
-                    crc_ready<=1'b0;
-                    frame_end<=1'b0;
                     frame_over<=1'b0;
                     clk_en<=1'b1;
                     if(delimiter_counter>=5'h11)begin
@@ -201,131 +159,45 @@ module decode_ctr(
                 
                 GET_DATA:begin
                     start_check_en<=1'b0;
-                    delimiter_check_en<=1'b0;
+						  SF_check<=1'b0;
+                    delimiter_check_en<=1'b1;
                     delimiter_count_en<=1'b0;
-                    crc_check_en<=1'b1;
-                    if(data_counter>=5'h1)begin
-                        crc_read<=1'b0;
-                    end else begin
-								crc_read<=1'b1;
-						  end
-                    deserializer_wait<=1'b0;
                     demanchesite_en<=1'b1;
-                    data_count_en<=1'b1;
-                    crc_count_en<=1'b0;
                     delimiter_count_en<=1'b0;
-                    frame_end<=1'b0;
                     frame_over<=1'b0;
                     clk_en<=1'b1;
-                    crc_ready<=1'b1;
-                    crc_read<=1'b0;
                     deserializer_en<=1'b1;
-						  /*if(data_counter==5'h15)begin
-								pre_state=GET_DATA;
+						  if(E_frame==1'b1)begin
+								next_state<=CHECK_END;
 						  end else begin
-								pre_state=pre_state;
-						  end*/
-                    if(quality_error==1'b1||signal_error==1'b1||crc_error==1'b1)begin
-                        next_state<=END;
-                    end else if(word_counter!=crc_word_counter&&(word_counter==frame_length_reg||word_counter%4==0)&&word_counter!=0)begin
-                          next_state<=CHECK_CRC;
-                    end else begin
-                          next_state<=GET_DATA;
-                    end
+								next_state<=GET_DATA;
+						  end
+							
                 end
                 
-                CHECK_CRC:begin
-                    start_check_en<=1'b0;
-                    delimiter_check_en<=1'b0;
-                    delimiter_count_en<=1'b0;
-                    crc_check_en<=1'b1;
-                    crc_read<=1'b0;
-						  data_count_en<=1'b0; 
-                    if(crc_counter>=5'h1&&crc_counter<=5'h8)begin
-                        deserializer_wait<=1'b1;
-                    end else begin
-								deserializer_wait<=1'b0;
-						  end
-                    if(word_counter==5'h1)begin
-                        crc_read<=1'b1;
-                    end else begin
-								if(crc_counter>=5'h1)begin
-									crc_read<=1'b1;
-								end else begin
-									crc_read<=1'b0;
-								end
-						  end
-                    if(crc_counter>=9)begin
-                        data_count_en<=1'b1;
-                    end else begin
-								data_count_en<=1'b0;
-						  end
-						  
-
-                    crc_ready<=1'b1;
-                    crc_count_en<=1'b1;
-                    deserializer_en<=1'b1;
-                    demanchesite_en<=1'b1;
-                    frame_end<=1'b0;
-                    frame_over<=1'b0;
-                    clk_en<=1'b1;
-                    if(word_counter==frame_length_reg)begin
-                        if(frame_length_reg==5'h1)begin
-                            if(crc_counter>=5'h8)begin
-                                delimiter_check_en<=1'b1;
-                                delimiter_count_en<=1'b1;
-                            end
-                        end
-                        if(crc_counter>=5'h9)begin
-                            delimiter_check_en<=1'b1;
-                            delimiter_count_en<=1'b1;
-                        end
-                    end else begin
-								delimiter_check_en<=1'b0;
-								delimiter_count_en<=1'b0;
-						  end
-                    if(crc_counter==4'h9)begin
-                            if(word_counter==frame_length_reg)begin
-                                frame_end<=1'b1;
-										  deserializer_en<=1'b1;
-                                next_state<=CHECK_END;
-                            end else begin
-										  crc_word_counter<=word_counter;
-                                next_state<=GET_DATA;
-                            end
-                    end else begin
-                        next_state<=CHECK_CRC;
-                    end
-                end 
+              
                 
                 CHECK_END:begin
                     start_check_en<=1'b0;
                     delimiter_check_en<=1'b1;
                     delimiter_count_en<=1'b1;
-                    frame_end<=1'b1;
-                    crc_check_en<=1'b1;
-                    crc_count_en<=1'b0;
-                    crc_ready<=1'b0;
-                    crc_read<=1'b0;
+                    //frame_end<=1'b1;
                     demanchesite_en<=1'b0;
-                    data_count_en<=1'b0;
                     deserializer_en<=1'b0;
-                    deserializer_wait<=1'b0;
-                    frame_over<=1'b0;
                     clk_en<=1'b1;
-                    if(delimiter_counter==5'h4&&E_frame==1'b1)begin
-                        frame_over<=1'b1;                   
-                        next_state<=END;
-                    end else begin
-                        next_state<=CHECK_END;
-                    end
+                    frame_over<=1'b1;
+						  if(wait_counter==4'h8)begin
+								next_state<=END;
+						  end else begin
+								next_state<=CHECK_END;
+						  end
                 end
                 
                 END:begin
                     start_check_en<=1'b0;
                     delimiter_check_en<=1'b0;
                     delimiter_count_en<=1'b0;
-                    frame_end<=1'b0;
+                    //frame_end<=1'b0;
                     crc_check_en<=1'b0;
                     crc_ready<=1'b0;
                     crc_read<=1'b0;

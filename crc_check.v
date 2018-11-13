@@ -50,7 +50,8 @@ module crc_check(
             crc_c[7]<=crc_c[6]^(data_in^crc_c[7]);
             crc_c[0]<=data_in^(^crc_c[7:1])^((data_in^crc_c[7])^1'b0);
             crc_get<=8'h0;
-            crc_code<={crc_c[6]^(data_in^crc_c[7]),crc_c[5]^(data_in^crc_c[7]),crc_c[4],crc_c[3],crc_c[2]^(data_in^crc_c[7]),crc_c[1],crc_c[7]^data_in,data_in^(^crc_c[7:1])^((data_in^crc_c[7])^1'b0)};
+            crc_code<={crc_c[6]^(data_in^crc_c[7]),crc_c[5]^(data_in^crc_c[7]),crc_c[4],crc_c[3],crc_c[2]^(data_in^crc_c[7])
+											,crc_c[1],crc_c[7]^data_in,data_in^(^crc_c[7:1])^((data_in^crc_c[7])^1'b0)};
             index<=4'h0;
         end else if(crc_ready==1'b1&&crc_read==1'b1)begin
             crc_code<=crc_code;

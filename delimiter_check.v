@@ -25,7 +25,8 @@ module delimiter_check(
             input           clk_3M,                 //3M时钟信号
             input           clk_6M,                 //6M时钟信号
             input           data_in,                //输入数据
-            input           frame_end,              //帧末尾信号
+            input           frame_end_check,        //帧末尾信号
+				input				 SF_check,
             output reg      M_frame,               //主帧起始信号
             output reg      S_frame,               //从帧起始信号
             output reg      E_frame,               //帧终止信号
@@ -35,7 +36,7 @@ module delimiter_check(
     reg[4:0]        delimiter_counter=5'h0;
     reg[15:0]       delimiter_in=16'h0;
     wire            data;
-	parameter      M_delimiter=16'b1100011100010101;  
+	 parameter      M_delimiter=16'b1100011100010101;  
     parameter      S_delimiter=16'b1010100011100011;  
     parameter      E_delimiter=4'b0011;
     
@@ -47,9 +48,17 @@ module delimiter_check(
             delimiter_in<=16'h0;
             delimiter_counter<=5'h0;
         end else begin
-            delimiter_in[0]<=data_in;
-            delimiter_in[15:1]<=delimiter_in[14:0];
-            delimiter_counter<=delimiter_counter+1;
+				if(SF_check==1'b1||frame_end_check==1'b1)begin
+					delimiter_in[0]<=data_in;
+					delimiter_in[15:1]<=delimiter_in[14:0];
+				end else begin
+					delimiter_in<=16'h0;
+				end
+				if(SF_check==1'b1) begin
+					delimiter_counter<=delimiter_counter+1;
+				end else begin
+					delimiter_counter<=5'h0;
+				end
         end
     end
     
@@ -60,7 +69,7 @@ module delimiter_check(
             E_frame<=1'b0;
             E_delimit<=1'b0;
             E_length<=1'b0;
-        end else if(delimiter_counter==5'h4&&frame_end==1'b1)begin
+        end else if(frame_end_check==1'b1)begin
             if(delimiter_in[3:0]==E_delimiter)begin
                 M_frame<=1'b0;
                 S_frame<=1'b0;
@@ -72,9 +81,9 @@ module delimiter_check(
                 S_frame<=1'b0;
                 E_frame<=1'b0;
                 E_delimit<=1'b0;            
-                E_length<=1'b1;
+                E_length<=1'b0;
             end
-        end  else if(delimiter_counter==5'h11)begin
+        end  else if(delimiter_counter==5'h11&&SF_check==1'b1)begin
                 if(delimiter_in==M_delimiter)begin
                     M_frame<=1'b1;
                     S_frame<=1'b0;
